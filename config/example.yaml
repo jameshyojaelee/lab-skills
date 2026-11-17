@@ -1,0 +1,18 @@
+# Example private config. Copy outside the repo, fill in, and point LAB_SKILLS_CONFIG at it.
+projects:
+  myproject:
+    notebook:
+      system: notion                  # notion | obsidian | markdown
+      database_id: 00000000000000000000000000000000
+      data_source: collection://00000000-0000-0000-0000-000000000000
+      people: {Alice: user://00000000-0000-0000-0000-000000000000}
+      icons: {nucleic_acid: "🧬", bench: "🧪", imaging: "🔬", computational: "💻"}
+      sections: [Summary, Notes, Endpoint]
+    chat:
+      system: slack
+      channels:
+        - {topic: tissue culture, channel_id: C00000000}
+        - {topic: general, channel_id: C00000001}
+    storage:
+      tapestation_runs: ~/data/myproject/Tapestation
+      run_name_regex: '^[0-9]{8}_[A-Z]{2}_[A-Za-z0-9_.-]+$'

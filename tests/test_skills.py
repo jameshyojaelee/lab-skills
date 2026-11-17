@@ -1,0 +1,88 @@
+"""Tests on synthetic data with known answers. Run from the repo root:
+    python3 tests/test_skills.py        (or: python3 -m pytest -q tests)"""
+import os, sys, tempfile
+import numpy as np
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+for p in ('skills/gel-quant/scripts', 'skills/qpcr-quant/scripts', 'skills/tapestation-qc/scripts',
+          'skills/cell-count/scripts', 'tests'):
+    sys.path.insert(0, os.path.join(ROOT, p))
+import gel_quant, qpcr_quant, tapestation_qc, cell_count
+import synthetic_gel, synthetic_qpcr, synthetic_tapestation, synthetic_countess
+
+
+def test_gel_synthetic():
+    cfg = os.path.join(ROOT, 'skills', 'gel-quant', 'examples', 'synthetic', 'config.yaml')
+    with tempfile.TemporaryDirectory() as td:
+        img = os.path.join(td, 'gel.tif')
+        synthetic_gel.render(img)
+        g, summ = gel_quant.run(cfg, image=img, outdir=td, plots=True)
+        assert os.path.exists(os.path.join(td, 'metrics.png'))
+    for r in g.metric_rows:
+        want = synthetic_gel.truth(r['lane'])[r['metric']]
+        assert abs(r['value'] - want) < 0.02, (r, want)
+    st = summ['standards']
+    assert st['usable'] == 1 and any(p['clip'] for p in st['points'])   # high standard saturates
+
+
+def test_gel_committed_example_matches_generator():
+    """The committed example image must be what the generator makes (deterministic)."""
+    from PIL import Image
+    path = os.path.join(ROOT, 'skills', 'gel-quant', 'examples', 'synthetic', 'synthetic_gel.tif')
+    assert np.array_equal(np.array(Image.open(path)), synthetic_gel.render())
+
+
+def test_qpcr_synthetic():
+    cfg = os.path.join(ROOT, 'skills', 'qpcr-quant', 'examples', 'single-bead-bulk', 'config.yaml')
+    with tempfile.TemporaryDirectory() as td:
+        xl = os.path.join(td, 'synthetic.xlsx')
+        truth = synthetic_qpcr.make(xl)
+        s = qpcr_quant.run(cfg, export=xl, outdir=td, make_plots=True)
+        assert os.path.exists(os.path.join(td, 'qpcr_qc.png'))
+    f = s['standard_curve']
+    assert abs(f['slope'] - truth['slope']) < 0.05 and f['r2'] > 0.999
+    sb = s['single_bead']['0.2_per_well']
+    assert abs(np.log10(sb['per_bead_median'] / truth['unit'])) < 0.1
+    assert abs(np.log10(sb['background_copies'] / truth['bg'])) < 0.1
+    assert sb['bead_wells'] == int((truth['k'] > 0).sum())
+    for k, v in truth['bulk'].items():
+        assert abs(np.log10(s['bulk'][k]['mean'] / v)) < 0.02, (k, s['bulk'][k], v)
+
+
+def test_auto_threshold():
+    ct = np.array([20.1, 20.0, 19.9, 20.2, 16.4, 16.6, 16.5])
+    assert 16.6 < qpcr_quant.auto_threshold(ct) < 19.9
+
+
+def test_tapestation_synthetic():
+    with tempfile.TemporaryDirectory() as td:
+        truth = synthetic_tapestation.write(os.path.join(td, 'run'))
+        o = tapestation_qc.run(os.path.join(td, 'run'), outdir=os.path.join(td, 'out'))
+        assert os.path.exists(os.path.join(td, 'out', 'gel_labeled.png'))
+    by = {r['well']: r for r in o['samples']}
+    for w, (bp, pa, dbp, dpa, rt, mol) in truth.items():
+        assert by[w]['main_peak_bp'] == bp and abs(by[w]['region_molarity_nM'] - mol / 1000) < 1e-9
+        assert abs(by[w]['pct_area_below'] - (dpa if dbp else 0)) < 1e-9
+        assert abs(o['size_check'][w]['trace_bp'] - bp) / bp < 0.03      # ladder sizing from the trace
+    assert any('B1' in x and 'below 200' in x for x in o['warnings'])
+    assert any('C1' in x and 'only 41' in x for x in o['warnings'])
+
+
+def test_countess_synthetic():
+    with tempfile.TemporaryDirectory() as td:
+        truth = synthetic_countess.write(os.path.join(td, 'cc'))
+        recs, groups, warn = cell_count.run([os.path.join(td, 'cc')], seed_cells=2e5, outdir=os.path.join(td, 'out'))
+    assert len(recs) == len(truth)
+    for (name, n, live, k), r in zip(truth, recs):
+        assert r['sample'] == name and r['json_pos'] == k and r['cube1_counted'] == k
+        assert abs(r['viability_pct'] - 100 * round(n * live) / n) < 0.01
+        assert r['cube1_ci_lo'] < 100 * k / n < r['cube1_ci_hi']
+    g = {x['group']: x for x in groups}
+    assert g['cellsA']['n_reads'] == 2 and abs(g['cellsA']['cube1_pooled_pct'] - 100 * 230 / 780) < 1e-6
+    assert abs(g['cellsB']['ul_for_seed'] - 2e5 / (400 * 2500) * 1000) < 1e-6
+
+
+if __name__ == '__main__':
+    for name, fn in list(globals().items()):
+        if name.startswith('test_'):
+            fn(); print('ok', name)

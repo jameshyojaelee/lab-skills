@@ -1,0 +1,50 @@
+# gel-quant config template. Copy next to the image and edit. Pixel values are image rows/columns.
+image: my_gel.scn            # .scn (preferred), .tif
+outdir: out
+# saturation: 4095           # override if the auto value is wrong (8-bit TIFF: 254; .scn: scanner max)
+
+profile:
+  rows: [100, 400]           # rows covering all bands of interest
+  halfwidth: 4               # strip half-width in px; keep inside the lane
+  background_window: 41      # >= 4-5 band widths
+  min_lane_spacing: 15       # only used for auto lane detection
+
+anchor: {mode: max, lo: 140, hi: 165, ref: 150}   # default smile correction (see SKILL.md)
+
+fit:
+  range: [130, 320]
+  centre_tolerance: 2
+  sigma_init: 2.5
+  sigma_min: 1.5
+  sigma_max: 4.5
+
+# Either give y for each band (expected row in a reference lane) or give calibration points
+# [[nt, y], ...] and let y be computed from length.
+# calibration: [[70, 228], [50, 257], [160, 148]]
+bands:
+  - {id: FL,  y: 150, length: 160, strand: top, label: full length}
+  - {id: P1,  y: 203, length: 90,  strand: top, label: after step 1}
+  - {id: S0,  y: 257, length: 50,  strand: top, label: start oligo}
+  - {id: u1,  y: 182}         # unassigned: fitted, not used in metrics
+
+lanes:                        # omit x to auto-detect (then check!)
+  - {name: Marker, x: 210, role: marker}
+  - {name: S1, x: 280, tags: [final], bead_ul: 1, label: S1}
+  - {name: S1-step1, x: 308, tags: [step1], bead_ul: 1, label: S1-step1,
+     anchor: {mode: centroid, lo: 195, hi: 215, ref: 205}}
+  - {name: Std-0.03, x: 535, role: standard, standard_band: FL, standard_pmol: 0.03}
+  - {name: Std-0.1,  x: 560, role: standard, standard_band: FL, standard_pmol: 0.1}
+
+metrics:
+  - {name: step1,   numerator: [FL, P1], denominator: [FL, P1, S0], lanes_with_tag: [final]}
+  - {name: step1,   numerator: [P1],     denominator: [P1, S0],     lanes_with_tag: [step1]}
+  - {name: step2,   numerator: [FL],     denominator: [FL, P1],     lanes_with_tag: [final]}
+  - {name: overall, numerator: [FL],     denominator: [FL, P1, S0], lanes_with_tag: [final]}
+
+amounts:
+  bands: [FL, P1, S0]
+  lanes_with_tag: [final]
+  reference: {lane: S1, band: FL}
+
+plots:                        # see examples/synthetic/config.yaml for a full plots block
+  gel: {crop: [190, 580, 120, 320], caption: 'Gel, stain, exposure.'}

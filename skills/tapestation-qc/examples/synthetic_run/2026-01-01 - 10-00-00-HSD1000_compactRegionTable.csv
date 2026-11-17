@@ -1,0 +1,4 @@
+FileName,WellId,Sample Description,From [bp],To [bp],Average Size [bp],Conc. [pg/µl],Region Molarity [pmol/l],% of Total,Region Comment
+2026-01-01 - 10.00.00.HSD1000,A1,,300,600,410,3000,14000.0,88.0,
+2026-01-01 - 10.00.00.HSD1000,B1,,300,600,430,3000,2100.0,62.0,
+2026-01-01 - 10.00.00.HSD1000,C1,,300,600,390,3000,40.0,41.0,

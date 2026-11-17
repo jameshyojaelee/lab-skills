@@ -1,0 +1,86 @@
+# Synthetic example: three-part sequential ligation, 12-bit image, known answers.
+# Regenerate the image with: python3 tests/synthetic_gel.py skills/gel-quant/examples/synthetic/synthetic_gel.tif
+# Species (nt): top strand start 50 -> step-1 product 90 -> full length 160, free incoming oligo 70;
+#               bottom strand 40 -> 80 -> 120.
+image: synthetic_gel.tif
+outdir: out
+saturation: 4095
+
+profile:
+  rows: [90, 300]
+  halfwidth: 4
+  background_window: 41
+
+anchor: {mode: max, lo: 112, hi: 135, ref: 123.3}     # full-length band
+
+fit:
+  range: [110, 245]
+  centre_tolerance: 2
+  sigma_init: 2.5
+  sigma_min: 1.5
+  sigma_max: 4.5
+
+bands:
+  - {id: FL,   y: 123.3, length: 160, strand: top,    label: full length}
+  - {id: FLb,  y: 145.7, length: 120, strand: bottom, label: full length}
+  - {id: S1,   y: 168.2, length: 90,  strand: top,    label: after step 1}
+  - {id: S1b,  y: 177.4, length: 80,  strand: bottom, label: after step 1}
+  - {id: FREE, y: 187.9, length: 70,  strand: top,    label: free incoming oligo}
+  - {id: S0,   y: 214.2, length: 50,  strand: top,    label: start oligo}
+  - {id: S0b,  y: 231.6, length: 40,  strand: bottom, label: start oligo}
+
+lanes:
+  - {name: Marker, x: 40, role: marker, label: M}
+  - {name: A-step1, x: 90, tags: [step1], bead_ul: 1, label: A1,
+     anchor: {mode: centroid, lo: 160, hi: 185, ref: 172.5}}
+  - {name: A-final, x: 140, tags: [final], bead_ul: 1, label: A}
+  - {name: B-step1, x: 190, tags: [step1], bead_ul: 1, label: B1,
+     anchor: {mode: centroid, lo: 160, hi: 185, ref: 172.5}}
+  - {name: B-final, x: 240, tags: [final], bead_ul: 1, label: B}
+  - {name: C-final, x: 290, tags: [final], bead_ul: 1, label: C}
+  - {name: Std-low,  x: 360, role: standard, standard_band: FL, standard_pmol: 0.01, label: '.01'}
+  - {name: Std-high, x: 410, role: standard, standard_band: FL, standard_pmol: 0.08, label: '.08'}
+
+metrics:
+  - {name: step1,        numerator: [FL, S1], denominator: [FL, S1, S0], lanes_with_tag: [final]}
+  - {name: step1,        numerator: [S1],     denominator: [S1, S0],     lanes_with_tag: [step1]}
+  - {name: step2,        numerator: [FL],     denominator: [FL, S1],     lanes_with_tag: [final]}
+  - {name: step2_bottom, numerator: [FLb],    denominator: [FLb, S1b],   lanes_with_tag: [final]}
+  - {name: overall,      numerator: [FL],     denominator: [FL, S1, S0], lanes_with_tag: [final]}
+
+amounts:
+  bands: [FL, S1, S0]
+  lanes_with_tag: [final]
+  reference: {lane: A-final, band: FL}
+
+plots:
+  gel:
+    crop: [10, 440, 100, 250]
+    groups:
+      - {label: Samples, lanes: [A-step1, A-final, B-step1, B-final, C-final]}
+      - {label: Std pmol, lanes: [Std-low, Std-high]}
+    annotate:
+      - {y: 123, text: 160 nt (full length)}
+      - {y: 146, text: 120 nt}
+      - {y: 172, text: 90 / 80 nt (after step 1)}
+      - {y: 188, text: 70 nt free oligo}
+      - {y: 214, text: 50 nt start}
+    caption: 'Synthetic gel. A1/B1 = after step 1 only; A, B, C = after step 2.'
+  metrics:
+    lanes: [A-final, B-final, C-final]
+    group_sizes: [3]
+    metrics:
+      - {name: step1,   label: Step 1,  color: '#8fb8ea'}
+      - {name: step2,   label: Step 2,  color: '#2a78d6'}
+      - {name: overall, label: Overall, color: '#0b3d91'}
+    target: 80
+    ylabel: Efficiency (%, molar, top strand)
+    caption: 'Step 1 = (160+90)/(160+90+50). Step 2 = 160/(160+90). Overall = 160/(160+90+50).'
+  amounts:
+    lanes: [A-final, B-final, C-final]
+    group_sizes: [3]
+    stack:
+      - {band: FL, label: Full length (160), color: '#0b3d91'}
+      - {band: S1, label: Stopped after step 1 (90), color: '#4a8fdc'}
+      - {band: S0, label: Start only (50), color: '#b9d6f5'}
+    ylabel: Relative molecules per µl sample

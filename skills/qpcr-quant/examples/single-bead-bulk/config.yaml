@@ -1,0 +1,39 @@
+# Example layout: single-bead + bulk-release qPCR on a 384-well plate (QuantStudio 5, SYBR, Luna).
+# The test suite runs this config on a synthetic export (tests/synthetic_qpcr.py).
+export: run_export.xls
+outdir: out
+ct_column: CT
+
+# Synthetic target standard 10 uM, diluted 1e6-fold to 10 pM; 2 ul per well; 10-fold series.
+standards:
+  stock_molar: 1.0e-5
+  stock_dilution: 1000000
+  template_ul: 2
+  fold: 10
+  levels: [[A9, B9], [C9, D9], [E9, F9], [G9, H9], [I9, J9], [K9, L9]]
+
+melt: {product_tm: 85.5, tolerance: 1.5}
+
+single_bead:
+  - {name: 0.2_per_well, wells: A1-P6, threshold: 18.5, lambda_planned: 0.2}
+  - {name: 1_per_well,   wells: A7-P7, threshold: 16.5, lambda_planned: 1.0}
+
+controls:
+  - {name: bare_beads, wells: 'rows:ACEGIKMO col:8'}
+  - {name: NTC, wells: [M9, N9]}
+
+# Release from a counted volume of bead suspension into 200 ul eluate, 2 ul template per well.
+# Beads released = hemocytometer count per ul of the counted dilution x dilution x volume taken.
+bulk:
+  template_ul: 2
+  eluate_ul: 200
+  samples:
+    - name: S1
+      bead_count: {per_ul: 955, dilution: 100, volume_ul: 5}
+      dilutions: [{fold: 1000, wells: [A10, B10]}, {fold: 10000, wells: [C10, D10]}]
+    - name: S2
+      bead_count: {per_ul: 1295, dilution: 100, volume_ul: 5}
+      dilutions: [{fold: 1000, wells: [E10, F10]}, {fold: 10000, wells: [G10, H10]}]
+    - name: S3
+      bead_count: {per_ul: 995, dilution: 100, volume_ul: 5}
+      dilutions: [{fold: 1000, wells: [I10, J10]}, {fold: 10000, wells: [K10, L10]}]

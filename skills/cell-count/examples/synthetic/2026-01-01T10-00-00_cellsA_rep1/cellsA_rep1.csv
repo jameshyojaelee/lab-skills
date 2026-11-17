@@ -1,0 +1,2 @@
+Count ID,Session ID,Sample name,Date & Time,Count mode,Type,1:1 Stain corrected,Pre-Dilution corrected,Total concentration,Total cells counted,Live concentration,Live cells counted,Dead concentration,Dead cells counted,Viability (%),Live average size (um),Dead average size (um),Cube 1 name,Cube 1 concentration,Cube 1 (%),Cube 1 cells counted,Aggregation (%)
+1000,1,cellsA_rep1,2026-01-01T10:00:00,Trypan blue,FL,True,False,1000000.0,400,900000.0,360,100000.0,40,90.0,14.5,12.0,GFP,300000.0,30.0,120,5.0
