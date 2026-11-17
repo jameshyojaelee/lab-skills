@@ -14,7 +14,7 @@ a parent folder (searched recursively), or a CSV file. Every CSV whose header st
 Outputs: reads.csv, groups.csv, summary.json, counts.png, fluorescence.png (if any fluorescence),
 brightness.png (if Cloud.json present).
 """
-import argparse, csv, glob, json, math, os, re
+import argparse, csv, glob, json, math, os, re, sys
 import numpy as np
 
 
@@ -193,43 +193,64 @@ def run(paths, group_regex=None, seed_cells=None, outdir='cell_count_out', plots
     return recs, groups, warn
 
 
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.realpath(__file__)), '..', '..', '..', '_shared'))
+import labstyle
+
+
 def plot(recs, outdir):
-    import matplotlib; matplotlib.use('Agg')
-    import matplotlib.pyplot as plt
-    plt.rcParams.update({'font.size': 8, 'font.family': 'DejaVu Sans', 'axes.spines.top': False, 'axes.spines.right': False})
+    """Rules: _shared/FIGURES.md."""
     x = np.arange(len(recs)); lab = [r['sample'] for r in recs]
-    fig, ax = plt.subplots(1, 2, figsize=(max(6, 0.45 * len(recs) + 3), 3), dpi=200)
-    ax[0].bar(x - 0.2, [r['live_per_ml'] for r in recs], 0.4, color='#2a78d6', label='live')
-    ax[0].bar(x + 0.2, [r['dead_per_ml'] for r in recs], 0.4, color='#b9d6f5', label='dead')
-    ax[0].set_ylabel('cells / ml'); ax[0].legend(frameon=False)
-    ax[1].bar(x, [r['viability_pct'] for r in recs], 0.6, color='#2a78d6'); ax[1].set_ylabel('viability (%)'); ax[1].set_ylim(0, 100)
-    for a in ax:
-        a.set_xticks(x); a.set_xticklabels(lab, rotation=60, ha='right', fontsize=6)
-    fig.tight_layout(); fig.savefig(os.path.join(outdir, 'counts.png'), bbox_inches='tight', facecolor='white'); plt.close(fig)
+    kind = 'single' if len(recs) <= 5 else 'double'
+    stained = [r for r in recs if r.get('viability_measured', True)]
+    if stained:
+        fig, ax = labstyle.figure('double', ncols=2)
+        ax[0].bar(x - 0.2, [r['live_per_ml'] for r in recs], 0.4, color=labstyle.STAGES[0], label='Live')
+        ax[0].bar(x + 0.2, [r['dead_per_ml'] for r in recs], 0.4, color=labstyle.STAGES[2], label='Dead')
+        ax[0].set_ylabel('Cells per ml'); ax[0].legend(loc='upper right'); ax[0].set_title('Concentration')
+        ax[1].bar(x, [r['viability_pct'] for r in recs], 0.6, color=labstyle.BLUE)
+        ax[1].set_ylabel('Viability (%)'); ax[1].set_ylim(0, 100); ax[1].set_title('Viability')
+        for a in ax:
+            a.set_xticks(x); a.set_xticklabels(lab, rotation=45, ha='right')
+        cap = 'Countess counts per read (cells per ml as exported). Reads without a viability stain show no bars.'
+    else:
+        fig, ax = labstyle.figure(kind, ncols=1)
+        ax.bar(x, [r['total_per_ml'] for r in recs], 0.6, color=labstyle.BLUE)
+        ax.set_ylabel('Total objects per ml'); ax.set_xticks(x); ax.set_xticklabels(lab, rotation=45, ha='right')
+        cap = 'Countess total objects per ml per read. No viability stain: live/dead not measured.'
+    labstyle.save(fig, os.path.join(outdir, 'counts'), caption=cap)
     if any('cube1_pct' in r for r in recs):
-        fig, a = plt.subplots(figsize=(max(5, 0.45 * len(recs) + 2), 3), dpi=200)
-        v = [r.get('cube1_pct', np.nan) for r in recs]
-        lo = [r.get('cube1_ci_lo', np.nan) for r in recs]; hi = [r.get('cube1_ci_hi', np.nan) for r in recs]
-        a.errorbar(x, v, yerr=[np.array(v) - np.array(lo), np.array(hi) - np.array(v)], fmt='o', color='#2a78d6', capsize=2, ms=4)
+        fig, a = labstyle.figure(kind, ncols=1)
+        v = np.array([r.get('cube1_pct', np.nan) for r in recs])
+        lo = np.array([r.get('cube1_ci_lo', np.nan) for r in recs]); hi = np.array([r.get('cube1_ci_hi', np.nan) for r in recs])
+        a.errorbar(x, v, yerr=[v - lo, hi - v], fmt='o', color=labstyle.BLUE, ms=4, label='All objects')
         if any('pos_pct_nonclumped' in r for r in recs):
-            a.plot(x, [r.get('pos_pct_nonclumped', np.nan) for r in recs], 'o', mfc='white', mec='#0b3d91', ms=4, label='non-clumped objects')
-            a.legend(frameon=False)
-        a.set_ylabel(f"{recs[0].get('cube1_name', 'fluor')}+ (%), 95% CI")
-        a.set_xticks(x); a.set_xticklabels(lab, rotation=60, ha='right', fontsize=6)
-        fig.tight_layout(); fig.savefig(os.path.join(outdir, 'fluorescence.png'), bbox_inches='tight', facecolor='white'); plt.close(fig)
+            a.plot(x + 0.15, [r.get('pos_pct_nonclumped', np.nan) for r in recs], 'o', mfc='white',
+                   mec=labstyle.BLUE, ms=4, label='Non-clumped')
+            a.legend(loc='best')
+        a.set_ylim(0, 100)
+        a.set_ylabel(f"{recs[0].get('cube1_name', 'Fluor')}+ objects (%)")
+        a.set_xticks(x); a.set_xticklabels(lab, rotation=45, ha='right')
+        labstyle.save(fig, os.path.join(outdir, 'fluorescence'), caption=(
+            'Fluorescent-positive objects / counted objects per read; error bars are Wilson 95% intervals on '
+            'counted objects. Open: positive among non-clumped objects (from Cloud.json).'))
     cl = [r for r in recs if r.get('_cloud', {}).get('brightness')]
     if cl:
-        fig, ax = plt.subplots(len(cl), 1, figsize=(5, 0.8 * len(cl) + 0.8), sharex=True, dpi=200)
+        fig, ax = labstyle.figure('single', nrows=len(cl), size=(3.5, min(0.5 * len(cl) + 0.7, 9)), sharex=True)
         ax = np.atleast_1d(ax)
         bins = np.linspace(0, 255, 64)
         for a, r in zip(ax, cl):
             b = np.array(r['_cloud']['brightness']); f = np.array(r['_cloud']['positive'])
-            a.hist(b[~f], bins=bins, color='#b9d6f5'); a.hist(b[f], bins=bins, color='#2a78d6')
+            a.hist(b[~f], bins=bins, color=labstyle.STAGES[2]); a.hist(b[f], bins=bins, color=labstyle.STAGES[0])
             if r.get('effective_gate'):
-                a.axvline(r['effective_gate'], color='#333', lw=0.8, ls='--')
-            a.text(0.99, 0.75, r['sample'], transform=a.transAxes, ha='right', fontsize=6.5); a.set_yticks([])
-        ax[-1].set_xlabel('fluorescent brightness per object (dark = instrument-positive; dashed = lowest positive)')
-        fig.tight_layout(h_pad=0.1); fig.savefig(os.path.join(outdir, 'brightness.png'), bbox_inches='tight', facecolor='white'); plt.close(fig)
+                a.axvline(r['effective_gate'], color=labstyle.INK, lw=0.6, ls=(0, (3, 2)))
+            a.set_title(r['sample'], fontsize=6, pad=1)
+            a.set_yticks([]); a.spines['left'].set_visible(False)
+            if a is not ax[-1]:
+                a.tick_params(axis='x', which='both', bottom=False, labelbottom=False)
+        ax[-1].set_xlabel('Fluorescent brightness per object')
+        labstyle.save(fig, os.path.join(outdir, 'brightness'), caption=(
+            'Per-object fluorescent brightness from Cloud.json. Dark: instrument-positive; light: negative; dashed '
+            'line: lowest brightness called positive (effective gate).'))
 
 
 if __name__ == '__main__':

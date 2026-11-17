@@ -54,6 +54,9 @@ checks, QC tables and two figures. Script: `scripts/qpcr_quant.py`. Example layo
 
 ## Report
 
+Figures: drawn by the script with `_shared/labstyle.py`; any extra figure follows `_shared/FIGURES.md`.
+Captions are written to `<figure>.caption.txt`; paste them under the image, not into it.
+
 - Separate a QC figure (standard curve, amplification, melt, plate map) from the results figure
   (Ct per well by group, Poisson, copies per bead).
 - Give single-bead median and spread (CV) with n, and bulk per bead with range across dilutions.

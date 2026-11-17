@@ -7,8 +7,8 @@
    bounds (>= / <=) or with confidence intervals, never as plain values.
 4. **Claim labels.** Verified (computed from the data here), inferred (identity by size, mechanisms,
    lane mappings not yet confirmed), estimate (relies on numbers from another experiment).
-5. **Figures.** Raw image (gel, trace) and summary plots are separate figures. No interpretation written
-   on figures. One plain caption per figure.
+5. **Figures.** Follow `FIGURES.md` and draw with `labstyle.py`. Raw image and summary plots are separate
+   figures; captions live outside the image.
 6. **Raw over processed.** Analyze the instrument's raw export at full bit depth where it exists; say so
    when only a processed export was available.
 7. **Notebook entries stay bare:** design, volumes, steps, recorded results, figures, one line on the

@@ -15,7 +15,8 @@ work for Claude Code, Codex, Gemini and people.
 | [`lab-notebook-entry`](skills/lab-notebook-entry/SKILL.md) | Bare-minimum electronic notebook entries (destination from private config) |
 | [`slack-update`](skills/slack-update/SKILL.md) | Short team updates from notebook entries, posted only after approval |
 
-All skills follow [`_shared/CONVENTIONS.md`](_shared/CONVENTIONS.md). Destinations such as notebook
+All skills follow [`_shared/CONVENTIONS.md`](_shared/CONVENTIONS.md) for reporting and
+[`_shared/FIGURES.md`](_shared/FIGURES.md) for figures, drawn with `_shared/labstyle.py` (which checks the rules on save). Destinations such as notebook
 databases and chat channels live in a private config outside the repo ([`config/`](config/README.md)).
 
 ## Layout
@@ -30,6 +31,7 @@ skills/<name>/
 scripts/link_skills.sh  symlink skills into agent skill folders
 tests/                  tests on synthetic data with known answers
 _shared/CONVENTIONS.md  reporting rules all skills follow
+_shared/FIGURES.md      figure rules; _shared/labstyle.py implements and checks them
 config/                 how private destinations are configured (example only)
 ```
 

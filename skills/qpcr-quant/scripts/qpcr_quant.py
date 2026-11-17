@@ -171,38 +171,42 @@ def bulk(wells, g, q):
     return pd.DataFrame(rows)
 
 
-# ------------------------------------------------------------------ plots
+# ------------------------------------------------------------------ plots (rules: _shared/FIGURES.md)
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.realpath(__file__)), '..', '..', '..', '_shared'))
+import labstyle
+
+
 def plots(cfg, wells, s, fit, sb, bk, outdir, amp=None, melt=None):
-    import matplotlib; matplotlib.use('Agg')
     import matplotlib.pyplot as plt
-    from matplotlib.lines import Line2D
-    from matplotlib.patches import Patch
-    plt.rcParams.update({'font.size': 8, 'font.family': 'DejaVu Sans', 'axes.spines.top': False,
-                         'axes.spines.right': False, 'legend.frameon': False, 'legend.fontsize': 6.5})
-    dark, acc, grey, light = '#2b2b2b', '#c0392b', '#9a9a9a', '#cfcfcf'
     rng = np.random.default_rng(1)
-    # ---- QC figure: standard curve, amplification, melt, plate map
-    fig, ax = plt.subplots(1, 4, figsize=(12, 2.9))
-    A, B, C, D = ax
+    std = set(s.well)
+    # ---- QC: standard curve, amplification, melt, plate map
+    fig, ax = labstyle.figure('full', nrows=2, ncols=2)
+    A, B, C, D = ax.ravel()
     x = np.linspace(s.log10_copies.min() - 0.3, s.log10_copies.max() + 0.3, 10)
-    A.plot(x, fit['slope'] * x + fit['intercept'], color=grey, lw=0.8); A.scatter(s.log10_copies, s.Ct, s=12, color=dark, zorder=3)
-    A.set_xlabel('log$_{10}$ copies / well'); A.set_ylabel('Ct'); A.set_title('A  Standard curve', loc='left')
-    A.text(0.97, 0.95, f"efficiency {fit['efficiency']*100:.0f}%\nR² {fit['r2']:.4f}", transform=A.transAxes, ha='right', va='top', fontsize=7)
+    A.plot(x, fit['slope'] * x + fit['intercept'], color=labstyle.GREY, lw=0.7)
+    A.plot(s.log10_copies, s.Ct, 'o', color=labstyle.INK, ms=3)
+    A.set_xlabel('log$_{10}$ copies per well'); A.set_ylabel('Ct'); A.set_title('Standard curve')
+    A.text(0.97, 0.95, f"efficiency {fit['efficiency']*100:.0f}%, R² {fit['r2']:.4f}", transform=A.transAxes,
+           ha='right', va='top', fontsize=6, color=labstyle.MUTED)
     if amp is not None:
         amp = amp.copy(); amp['Cycle'] = pd.to_numeric(amp['Cycle']); amp['dRn'] = pd.to_numeric(amp['Delta Rn'])
         for w, sx in amp.groupby('Well Position'):
-            B.plot(sx.Cycle, sx.dRn.clip(lower=1e-3), lw=0.4, color=dark if w in set(s.well) else acc, alpha=0.5)
-        B.set_yscale('log'); B.set_xlabel('cycle'); B.set_ylabel('ΔRn')
-    B.set_title('B  Amplification (dark = standards)', loc='left')
+            B.plot(sx.Cycle, sx.dRn.clip(lower=1e-3), lw=0.4, alpha=0.6, color=labstyle.INK if w in std else labstyle.BLUE)
+        B.set_yscale('log'); B.set_xlabel('Cycle'); B.set_ylabel('ΔRn')
+    else:
+        labstyle.empty(B, 'amplification data not in export')
+    B.set_title('Amplification')
     if melt is not None:
         melt = melt.copy(); melt['T'] = pd.to_numeric(melt['Temperature']); melt['d'] = pd.to_numeric(melt['Derivative'])
         for w, sx in melt.groupby('Well Position'):
-            C.plot(sx['T'], sx.d / sx.d.max(), lw=0.4, color=dark if w in set(s.well) else acc, alpha=0.5)
-        C.set_xlabel('°C'); C.set_ylabel('−dF/dT (norm.)')
-    tm = cfg.get('melt', {}).get('product_tm')
-    if tm:
-        C.axvline(tm, color=grey, lw=0.6, ls='--')
-    C.set_title('C  Melt curves', loc='left')
+            C.plot(sx['T'], sx.d / sx.d.max(), lw=0.4, alpha=0.6, color=labstyle.INK if w in std else labstyle.BLUE)
+        C.set_xlabel('Temperature (°C)'); C.set_ylabel('−dF/dT (norm.)')
+    else:
+        labstyle.empty(C, 'melt data not in export')
+    if melt is not None and cfg.get('melt', {}).get('product_tm'):
+        C.axvline(cfg['melt']['product_tm'], color=labstyle.TARGET, lw=0.6, ls=(0, (3, 2)))
+    C.set_title('Melt curves')
     M = np.full((16, 24), np.nan)
     for _, w in wells.iterrows():
         m = re.fullmatch(r'([A-P])(\d+)', w.well)
@@ -210,48 +214,59 @@ def plots(cfg, wells, s, fit, sb, bk, outdir, amp=None, melt=None):
             M[ROWS.index(m.group(1)), int(m.group(2)) - 1] = w.Ct
     cols = np.where(np.isfinite(M).any(0))[0]
     ncol = int(cols.max()) + 1 if len(cols) else 24
-    im = D.imshow(M[:, :ncol], cmap='magma', vmin=np.nanmin(M), vmax=40, aspect='auto')
-    D.set_xticks(range(ncol)); D.set_xticklabels(range(1, ncol + 1), fontsize=5.5)
-    D.set_yticks(range(16)); D.set_yticklabels(list(ROWS), fontsize=5.5); D.tick_params(length=0)
-    fig.colorbar(im, ax=D, fraction=0.05, pad=0.02).set_label('Ct'); D.set_title('D  Plate map (Ct)', loc='left')
-    fig.tight_layout(); fig.savefig(os.path.join(outdir, 'qpcr_qc.png'), dpi=220, bbox_inches='tight'); plt.close(fig)
-    # ---- results figure: Ct by group, Poisson, per bead
+    im = D.imshow(M[:, :ncol], cmap='Blues_r', vmin=np.nanmin(M), vmax=40, aspect='auto')
+    D.set_xticks(range(0, ncol, 2)); D.set_xticklabels(range(1, ncol + 1, 2))
+    D.set_yticks(range(0, 16, 2)); D.set_yticklabels(list(ROWS)[::2]); D.tick_params(length=0)
+    [sp.set_visible(False) for sp in D.spines.values()]
+    fig.colorbar(im, ax=D, fraction=0.05, pad=0.02).set_label('Ct')
+    D.set_title('Ct plate map')
+    labstyle.save(fig, os.path.join(outdir, 'qpcr_qc'), caption=(
+        'Standard curve: Ct vs log10 copies per well, all standard wells, least-squares fit. Amplification and '
+        'melt: black = standards, blue = samples. Dashed line: expected product Tm. Plate map: Ct per well; '
+        'blank = no Ct.'))
     if not sb and bk is None:
         return
-    fig, ax = plt.subplots(1, 3, figsize=(10, 3.0))
+    # ---- results: Ct per well, Poisson, copies per bead
+    fig, ax = labstyle.figure('triple')
     E, F, G = ax
     for i, (name, (d, tab, res)) in enumerate(sb.items()):
-        col = np.where(d.bead, acc, grey)
-        E.scatter(i + rng.uniform(-0.18, 0.18, len(d)), d.Ct, s=7, color=col, lw=0)
-        E.hlines(res['threshold'], i - 0.3, i + 0.3, color=dark, lw=0.6, ls='--')
+        E.scatter(i + rng.uniform(-0.18, 0.18, len(d)), d.Ct, s=5, lw=0,
+                  color=np.where(d.bead, labstyle.BLUE, labstyle.GREY))
+        E.hlines(res['threshold'], i - 0.3, i + 0.3, color=labstyle.INK, lw=0.6, ls=(0, (3, 2)))
     for j, cg in enumerate(cfg.get('controls', []), start=len(sb)):
         d = wells[wells.well.isin(expand_wells(cg['wells']))]
-        E.scatter(j + rng.uniform(-0.18, 0.18, len(d)), d.Ct.fillna(40), s=7, color=grey, lw=0)
+        E.scatter(j + rng.uniform(-0.18, 0.18, len(d)), d.Ct.fillna(40), s=5, lw=0, color=labstyle.GREY)
     labels = list(sb) + [c['name'] for c in cfg.get('controls', [])]
-    E.set_xticks(range(len(labels))); E.set_xticklabels(labels, fontsize=6.5, rotation=20)
-    E.set_ylabel('Ct'); E.invert_yaxis(); E.set_title('E  Ct per well (red = bead)', loc='left')
+    E.set_xticks(range(len(labels))); E.set_xticklabels([l.replace('_', ' ') for l in labels], rotation=30, ha='right')
+    E.set_ylabel('Ct'); E.invert_yaxis(); E.set_title('Ct per well')
     if sb:
         name, (d, tab, res) = next(iter(sb.items()))
         k = np.arange(4)
-        F.bar(k - 0.2, tab.observed, 0.38, color=acc, label='observed')
+        F.bar(k - 0.2, tab.observed, 0.38, color=labstyle.BLUE, label='Observed')
         if res['lambda_planned']:
-            F.bar(k + 0.2, tab.expected_planned, 0.38, color=light, label=f"Poisson λ planned {res['lambda_planned']:g}")
-        F.plot(k + 0.2, tab.expected_fitted, '_', ms=10, mew=1.4, color=dark, label=f"Poisson λ fitted {res['lambda_fitted']:.2f}")
-        F.set_xticks(k); F.set_xticklabels(tab.beads); F.set_xlabel('beads per well'); F.set_ylabel('wells')
-        F.legend(loc='upper right'); F.set_title(f'F  Beads per well, {name}', loc='left')
-    xi = 0
+            F.bar(k + 0.2, tab.expected_planned, 0.38, color=labstyle.STAGES[2], label='Poisson, planned λ')
+        F.plot(k + 0.2, tab.expected_fitted, '_', ms=8, mew=1.2, color=labstyle.INK, label='Poisson, fitted λ')
+        F.set_xticks(k); F.set_xticklabels(tab.beads); F.set_xlabel('Beads per well'); F.set_ylabel('Wells')
+        F.legend(loc='upper right'); F.set_title('Beads per well')
+    xi, ticks = 0, []
     for name, (d, tab, res) in sb.items():
         v = d.loc[d.bead, 'per_bead']
-        G.scatter(xi + rng.uniform(-0.15, 0.15, len(v)), v, s=8, color=acc, lw=0); G.hlines(v.median(), xi - 0.25, xi + 0.25, color=dark)
-        xi += 1
-    ticks = list(sb)
+        G.scatter(xi + rng.uniform(-0.15, 0.15, len(v)), v, s=6, lw=0, color=labstyle.BLUE)
+        G.hlines(v.median(), xi - 0.25, xi + 0.25, color=labstyle.INK, lw=0.8)
+        ticks.append(name.replace('_', ' ')); xi += 1
     if bk is not None and len(bk):
         for sn, dd in bk.groupby('sample', sort=False):
-            G.scatter(np.full(len(dd), xi) + rng.uniform(-0.12, 0.12, len(dd)), dd.per_bead, s=12, facecolor='white', edgecolor=dark)
-            G.hlines(dd.per_bead.mean(), xi - 0.25, xi + 0.25, color=dark); ticks.append(dd.label.iloc[0]); xi += 1
-    G.set_yscale('log'); G.set_xticks(range(len(ticks))); G.set_xticklabels(ticks, fontsize=6.5, rotation=20)
-    G.set_ylabel('copies per bead'); G.set_title('G  Copies per bead (red single, open bulk)', loc='left')
-    fig.tight_layout(); fig.savefig(os.path.join(outdir, 'qpcr_results.png'), dpi=220, bbox_inches='tight'); plt.close(fig)
+            G.scatter(np.full(len(dd), xi) + rng.uniform(-0.12, 0.12, len(dd)), dd.per_bead, s=10,
+                      facecolor='white', edgecolor=labstyle.INK, lw=0.6)
+            G.hlines(dd.per_bead.mean(), xi - 0.25, xi + 0.25, color=labstyle.INK, lw=0.8)
+            ticks.append(str(dd.label.iloc[0])); xi += 1
+    G.set_yscale('log'); G.set_xticks(range(len(ticks))); G.set_xticklabels(ticks, rotation=30, ha='right')
+    G.set_ylabel('Copies per bead'); G.set_title('Copies per bead')
+    labstyle.save(fig, os.path.join(outdir, 'qpcr_results'), caption=(
+        'Ct per well: blue = bead wells (Ct below the dashed threshold), grey = no bead and controls (no Ct '
+        'plotted at 40). Beads per well: observed counts vs Poisson at the planned and fitted λ (first single-bead '
+        'block). Copies per bead: filled = single-bead wells after background subtraction, line = median; open = '
+        'bulk release per counted bead, line = mean.'))
 
 
 # ------------------------------------------------------------------ main

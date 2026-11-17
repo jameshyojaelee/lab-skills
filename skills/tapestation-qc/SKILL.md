@@ -55,6 +55,9 @@ Mass from molarity, when needed: ng/µl = nM x 660 x bp / 1e6 (660 g/mol per bp 
 
 ## Report
 
+Figures: drawn by the script with `_shared/labstyle.py`; any extra figure follows `_shared/FIGURES.md`.
+Captions are written to `<figure>.caption.txt`; paste them under the image, not into it.
+
 - Table per sample: well, sample, main peak bp, region bp, nM, % in region, % below cut-off.
 - The labelled gel and electropherograms as separate figures; no interpretation written on figures.
 - Label the region column with its bounds (e.g. "300-600 bp").

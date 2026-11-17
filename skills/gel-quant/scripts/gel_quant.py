@@ -233,111 +233,94 @@ class Gel:
         return out
 
 
-# ---------------------------------------------------------------- plots
-def _style():
-    import matplotlib.pyplot as plt
-    plt.rcParams.update({'font.size': 8.5, 'font.family': 'DejaVu Sans',
-                         'axes.spines.top': False, 'axes.spines.right': False})
-    return plt
+# ---------------------------------------------------------------- plots (rules: _shared/FIGURES.md)
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.realpath(__file__)), '..', '..', '..', '_shared'))
+import labstyle
 
 
-def plot_gel(g, path):
+def _xpos(lanes, sizes):
+    xs, x = [], 0.0
+    for n in sizes:
+        for _ in range(n):
+            xs.append(x); x += 1
+        x += 0.5
+    return np.array(xs[:len(lanes)])
+
+
+def plot_gel(g, stem):
     pc = g.cfg.get('plots', {}).get('gel')
     if not pc:
         return
-    plt = _style()
     x0, x1, y0, y1 = pc['crop']
-    fig, ax = plt.subplots(figsize=pc.get('size', [5.2, 3.6]), dpi=220)
+    fig, ax = labstyle.figure('image', size=pc.get('size'))
     sub = g.a[y0:y1, x0:x1]
     vmax = pc.get('vmax', np.percentile(sub, 99.5))
     ax.imshow(np.clip(sub / vmax, 0, 1) ** pc.get('gamma', 0.7), cmap='gray', aspect='auto', extent=[x0, x1, y1, y0])
     for L in g.lanes:
-        ax.text(L['x'], y0 - 4, L.get('label', L['name']), ha='center', va='bottom', fontsize=7.5)
+        ax.text(L['x'], y0 - 3, L.get('label', L['name']), ha='center', va='bottom', fontsize=6)
     for grp in pc.get('groups', []):
         xs = [L['x'] for L in g.lanes if L['name'] in grp['lanes']]
-        ax.plot([min(xs), max(xs)], [y0 - 17] * 2, color='#333', lw=0.8, clip_on=False)
-        ax.text(np.mean([min(xs), max(xs)]), y0 - 19, grp['label'], ha='center', va='bottom', fontsize=7.5)
+        yy = y0 - 0.09 * (y1 - y0)
+        ax.plot([min(xs) - 4, max(xs) + 4], [yy, yy], color=labstyle.INK, lw=0.6, clip_on=False)
+        ax.text(np.mean([min(xs), max(xs)]), yy - 1, grp['label'], ha='center', va='bottom', fontsize=6.5)
     for an in pc.get('annotate', []):
-        ax.annotate(an['text'], (x1, an['y']), (x1 + 8, an['y']), fontsize=7.5, va='center', annotation_clip=False,
-                    arrowprops=dict(arrowstyle='-', lw=0.6, color='#444'))
-    ax.set_xticks([]); ax.set_yticks([]); [s.set_visible(False) for s in ax.spines.values()]
-    if pc.get('caption'):
-        fig.text(0.02, 0.01, pc['caption'], fontsize=6.5)
-    fig.savefig(path, bbox_inches='tight', facecolor='white'); plt.close(fig)
+        ax.annotate(an['text'], (x1, an['y']), (x1 + 0.03 * (x1 - x0), an['y']), fontsize=6, va='center',
+                    annotation_clip=False, arrowprops=dict(arrowstyle='-', lw=0.5, color=labstyle.MUTED))
+    ax.set_xticks([]); ax.set_yticks([]); [sp.set_visible(False) for sp in ax.spines.values()]
+    labstyle.save(fig, stem, caption=pc.get('caption'))
 
 
-def _xpos(order, gaps):
-    """x positions with a gap between groups. order: list of lane names; gaps: list of group sizes."""
-    xs, x = [], 0.0
-    for gsize in gaps:
-        for _ in range(gsize):
-            xs.append(x); x += 1
-        x += 0.6
-    return np.array(xs[:len(order)])
-
-
-def plot_metrics(g, path):
+def plot_metrics(g, stem):
     pc = g.cfg.get('plots', {}).get('metrics')
     if not pc:
         return
-    plt = _style()
     lanes, mets = pc['lanes'], pc['metrics']
     xs = _xpos(lanes, pc.get('group_sizes', [len(lanes)]))
     val = {(r['lane'], r['metric']): r for r in g.metric_rows}
-    fig, ax = plt.subplots(figsize=pc.get('size', [6.4, 3.3]), dpi=220)
+    fig, ax = labstyle.figure(pc.get('kind', 'single' if len(lanes) <= 4 else 'double'), ncols=1, size=pc.get('size'))
     w = 0.8 / len(mets)
+    ax.set_ylim(0, 100)
     for i, m in enumerate(mets):
-        for x, n in zip(xs, lanes):
-            r = val.get((n, m['name']))
-            if not r:
-                continue
-            v = r['value'] * 100
-            xx = x + (i - (len(mets) - 1) / 2) * w
-            ax.bar(xx, v, w * 0.92, color=m['color'], label=m['label'] if x == xs[0] else None)
-            ax.text(xx, v + 1, r['bound'].replace('>=', '≥').replace('<=', '≤') + f'{v:.0f}', ha='center', va='bottom', fontsize=6.5)
+        xx = xs + (i - (len(mets) - 1) / 2) * w
+        rows = [val.get((n, m['name'])) for n in lanes]
+        v = [r['value'] * 100 if r else np.nan for r in rows]
+        col = m.get('color', labstyle.STAGES[min(i, 3)] if len(mets) > 1 else labstyle.BLUE)
+        bars = ax.bar(xx, v, w * 0.9, color=col, label=m['label'])
+        labstyle.bar_labels(ax, bars, prefix=[('≥' if r and r['bound'] == '>=' else '≤' if r and r['bound'] == '<=' else '') for r in rows])
     if pc.get('target'):
-        ax.axhline(pc['target'], ls='--', lw=0.9, color='#666')
-    ax.set_xticks(xs); ax.set_xticklabels([pc.get('tick_labels', {}).get(n, n) for n in lanes])
-    for lab in pc.get('group_labels', []):
-        idx = [lanes.index(n) for n in lab['lanes']]
-        ax.text(xs[idx].mean(), -0.15, lab['text'], transform=ax.get_xaxis_transform(), ha='center', va='top', fontsize=8.5, fontweight='bold')
-    ax.set_ylim(0, 100); ax.set_ylabel(pc.get('ylabel', 'Efficiency (%, molar)'))
-    ax.grid(axis='y', lw=0.4, color='#e6e6e6'); ax.set_axisbelow(True)
-    ax.legend(frameon=False, fontsize=7.5, loc='upper center', bbox_to_anchor=(0.5, 1.16), ncol=len(mets))
-    if pc.get('caption'):
-        fig.text(0.01, -0.17, pc['caption'], fontsize=6.5)
-    fig.savefig(path, bbox_inches='tight', facecolor='white'); plt.close(fig)
+        labstyle.target_line(ax, pc['target'], f"{pc['target']}%")
+    groups = [(lab['text'], [xs[lanes.index(n)] for n in lab['lanes']]) for lab in pc.get('group_labels', [])]
+    labstyle.group_axis(ax, xs, [pc.get('tick_labels', {}).get(n, n) for n in lanes], groups)
+    ax.set_ylabel(pc.get('ylabel', 'Efficiency (%)'))
+    if len(mets) > 1:
+        ax.legend(loc='upper left', bbox_to_anchor=(0, 1.12), ncol=len(mets))
+    labstyle.save(fig, stem, caption=pc.get('caption'))
 
 
-def plot_amounts(g, path):
+def plot_amounts(g, stem):
     pc = g.cfg.get('plots', {}).get('amounts')
     if not pc or not g.amount_rows:
         return
-    plt = _style()
     lanes = pc['lanes']
     xs = _xpos(lanes, pc.get('group_sizes', [len(lanes)]))
     key = 'relative' if 'relative' in g.amount_rows[0] else 'per_unit'
     val = {(r['lane'], r['band']): r for r in g.amount_rows}
-    fig, ax = plt.subplots(figsize=pc.get('size', [6.0, 3.4]), dpi=220)
-    for x, n in zip(xs, lanes):
-        bot, anyclip = 0, False
-        for i, s in enumerate(pc['stack']):
-            r = val[(n, s['band'])]; v = r[key]; anyclip |= bool(r['clip'])
-            ax.bar(x, v, 0.7, bottom=bot, color=s['color'], edgecolor='white', lw=0.8, label=s['label'] if x == xs[0] else None)
-            if i == 0:
-                ax.text(x, v / 2, ('≥' if r['clip'] else '') + f'{v:.1f}', ha='center', va='center', color='white', fontsize=7.5, fontweight='bold')
-            bot += v
-        ax.text(x, bot * 1.01, ('≥' if anyclip else '') + f'{bot:.1f}', ha='center', va='bottom', fontsize=7.5)
-    ax.set_xticks(xs); ax.set_xticklabels([pc.get('tick_labels', {}).get(n, n) for n in lanes])
-    for lab in pc.get('group_labels', []):
-        idx = [lanes.index(n) for n in lab['lanes']]
-        ax.text(xs[idx].mean(), -0.15, lab['text'], transform=ax.get_xaxis_transform(), ha='center', va='top', fontsize=8.5, fontweight='bold')
+    fig, ax = labstyle.figure(pc.get('kind', 'single' if len(lanes) <= 4 else 'double'), ncols=1, size=pc.get('size'))
+    bottom = np.zeros(len(lanes))
+    for i, s_ in enumerate(pc['stack']):
+        v = np.array([val[(n, s_['band'])][key] for n in lanes])
+        ax.bar(xs, v, 0.7, bottom=bottom, color=s_.get('color', labstyle.STAGES[min(i, 3)]), edgecolor='white',
+               lw=0.6, label=s_['label'])
+        bottom += v
+    clip = [any(val[(n, s_['band'])]['clip'] for s_ in pc['stack']) for n in lanes]
+    ax.set_ylim(0, bottom.max() * 1.15)
+    for x, b, c in zip(xs, bottom, clip):
+        ax.text(x, b + bottom.max() * 0.01, ('≥' if c else '') + f'{b:.1f}', ha='center', va='bottom', fontsize=6)
+    groups = [(lab['text'], [xs[lanes.index(n)] for n in lab['lanes']]) for lab in pc.get('group_labels', [])]
+    labstyle.group_axis(ax, xs, [pc.get('tick_labels', {}).get(n, n) for n in lanes], groups)
     ax.set_ylabel(pc.get('ylabel', 'Relative amount'))
-    ax.grid(axis='y', lw=0.4, color='#e6e6e6'); ax.set_axisbelow(True)
-    ax.legend(frameon=False, fontsize=7.5, loc='upper left')
-    if pc.get('caption'):
-        fig.text(0.01, -0.16, pc['caption'], fontsize=6.5)
-    fig.savefig(path, bbox_inches='tight', facecolor='white'); plt.close(fig)
+    ax.legend(loc='upper left')
+    labstyle.save(fig, stem, caption=pc.get('caption'))
 
 
 # ---------------------------------------------------------------- main
@@ -377,9 +360,9 @@ def run(cfg_path, image=None, outdir=None, compare=None, plots=True):
         summary['compare_max_abs_diff_unclipped'] = max(un) if un else None
     json.dump(summary, open(os.path.join(outdir, 'summary.json'), 'w'), indent=1)
     if plots:
-        plot_gel(g, os.path.join(outdir, 'gel_annotated.png'))
-        plot_metrics(g, os.path.join(outdir, 'metrics.png'))
-        plot_amounts(g, os.path.join(outdir, 'amounts.png'))
+        plot_gel(g, os.path.join(outdir, 'gel_annotated'))
+        plot_metrics(g, os.path.join(outdir, 'metrics'))
+        plot_amounts(g, os.path.join(outdir, 'amounts'))
     return g, summary
 
 

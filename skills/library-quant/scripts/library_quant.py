@@ -14,7 +14,7 @@ Per library:
   size-corrected nM = mean undiluted pM x standard size / library size / 1000
   fluorometric nM   = ng/ul x 1e6 / (660 x library size)  (if given), and the qPCR / fluorometric ratio
 """
-import argparse, csv, glob, json, os, re
+import argparse, csv, glob, json, os, re, sys
 import numpy as np
 import yaml
 
@@ -169,40 +169,61 @@ def run(cfg_path, export_dir=None, outdir=None, plots=True):
     return fit, libs, warn
 
 
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.realpath(__file__)), '..', '..', '..', '_shared'))
+import labstyle
+
+
 def plot(cfg, fit, pts, libs, amp, lv, outdir):
-    import matplotlib; matplotlib.use('Agg')
-    import matplotlib.pyplot as plt
-    plt.rcParams.update({'font.size': 8, 'font.family': 'DejaVu Sans', 'axes.spines.top': False, 'axes.spines.right': False})
-    fig, ax = plt.subplots(1, 3, figsize=(13, 3.4), dpi=200, gridspec_kw=dict(width_ratios=[1, 1, 1.5]))
-    A, B, C = ax
+    """Rules: _shared/FIGURES.md. Two figures: QC (curve + amplification) and concentrations."""
+    fig, ax = labstyle.figure('double', ncols=2)
+    A, B = ax
     x = np.log10([p for p, _ in pts]); y = [c for _, c in pts]
     xs = np.linspace(x.min() - 0.5, x.max() + 0.5, 20)
-    A.plot(xs, fit['slope'] * xs + fit['intercept'], color='#999', lw=0.8); A.plot(x, y, 'o', mfc='white', mec='#333')
+    A.plot(xs, fit['slope'] * xs + fit['intercept'], color=labstyle.GREY, lw=0.7)
+    A.plot(x, y, 'o', mfc='white', mec=labstyle.INK, ms=4, label='Standards')
+    first = True
     for r in libs:
         for i in (1, 2):
             if f'd{i}_cq' in r and np.isfinite(r[f'd{i}_cq']):
-                A.plot((r[f'd{i}_cq'] - fit['intercept']) / fit['slope'], r[f'd{i}_cq'], '^' if i == 1 else 'v', color='#2a78d6', ms=4)
-    A.set_xlabel('log10 pM in well'); A.set_ylabel('Cq'); A.set_title('A  Standard curve', loc='left')
-    A.text(0.97, 0.95, f"efficiency {fit['efficiency']*100:.1f}%\nR² {fit['r2']:.4f}", transform=A.transAxes, ha='right', va='top')
+                A.plot((r[f'd{i}_cq'] - fit['intercept']) / fit['slope'], r[f'd{i}_cq'], 'o', color=labstyle.BLUE,
+                       ms=3, label='Libraries' if first else None)
+                first = False
+    A.set_xlabel('log$_{10}$ pM in well'); A.set_ylabel('Cq'); A.set_title('Standard curve')
+    A.legend(loc='lower left')
+    A.text(0.97, 0.95, f"efficiency {fit['efficiency']*100:.1f}%, R² {fit['r2']:.4f}", transform=A.transAxes,
+           ha='right', va='top', fontsize=6, color=labstyle.MUTED)
     if amp:
         cyc, d = amp
         sw = {w for l in lv for w in expand(l['wells'])}
-        lw = {w for s in cfg['libraries'] for dd in s['dilutions'] for w in expand(dd['wells'])}
+        lw = {w for s_ in cfg['libraries'] for dd in s_['dilutions'] for w in expand(dd['wells'])}
         for w, v in d.items():
-            col = '#333' if w in sw else '#2a78d6' if w in lw else '#ddd'
-            B.plot(cyc, v, color=col, lw=0.6, alpha=0.8)
-        B.set_xlabel('cycle'); B.set_ylabel('RFU')
-    B.set_title('B  Amplification (dark = standards, grey = other wells)', loc='left')
-    xi = np.arange(len(libs)); w = 0.38
-    C.bar(xi - (w / 2 if any('fluorometric_nM' in r for r in libs) else 0), [r['nM_size_corrected'] for r in libs], w, color='#2a78d6', label='qPCR, size-corrected')
-    if any('fluorometric_nM' in r for r in libs):
-        C.bar(xi + w / 2, [r.get('fluorometric_nM', np.nan) for r in libs], w, color='#ccc', label='fluorometric + size')
-    for i, r in enumerate(libs):
-        C.text(i - (w / 2 if 'fluorometric_nM' in r else 0), r['nM_size_corrected'] * 1.1, f"{r['nM_size_corrected']:.2f}", ha='center', fontsize=7)
-    C.set_yscale('log'); C.set_ylabel('undiluted library (nM)'); C.legend(frameon=False)
-    C.set_xticks(xi); C.set_xticklabels([r['name'] for r in libs], rotation=45, ha='right', fontsize=7)
-    C.set_title('C  Library concentration', loc='left')
-    fig.tight_layout(); fig.savefig(os.path.join(outdir, 'library_quant.png'), bbox_inches='tight', facecolor='white'); plt.close(fig)
+            if w in sw or w in lw:
+                B.plot(cyc, v, color=labstyle.INK if w in sw else labstyle.BLUE, lw=0.5, alpha=0.7)
+        B.set_xlabel('Cycle'); B.set_ylabel('RFU')
+    else:
+        labstyle.empty(B, 'amplification data not in export')
+    B.set_title('Amplification')
+    labstyle.save(fig, os.path.join(outdir, 'library_quant_qc'), caption=(
+        'Standard curve: Cq vs log10 pM of the DNA standards (open), least-squares fit; libraries (blue) placed on '
+        'the curve at each dilution. Amplification: black = standards, blue = libraries.'))
+    fig, ax = labstyle.figure('single' if len(libs) <= 6 else 'double', ncols=1)
+    xi = np.arange(len(libs)); two = any('fluorometric_nM' in r for r in libs); w = 0.38 if two else 0.6
+    bars = ax.bar(xi - (w / 2 if two else 0), [r['nM_size_corrected'] for r in libs], w, color=labstyle.BLUE,
+                  label='qPCR, size-corrected')
+    if two:
+        ax.bar(xi + w / 2, [r.get('fluorometric_nM', np.nan) for r in libs], w, color=labstyle.STAGES[2],
+               label='Fluorometric')
+        ax.legend(loc='upper left')
+    ax.set_yscale('log'); ax.set_ylabel('Undiluted library (nM)')
+    for b in bars:
+        v = b.get_height()
+        ax.annotate(f'{v:.0f}' if v >= 10 else f'{v:.2g}', (b.get_x() + b.get_width() / 2, b.get_height()), xytext=(0, 1),
+                    textcoords='offset points', ha='center', va='bottom', fontsize=6)
+    ax.set_xticks(xi); ax.set_xticklabels([r['name'] for r in libs], rotation=45 if len(libs) > 4 else 0,
+                                          ha='right' if len(libs) > 4 else 'center')
+    labstyle.save(fig, os.path.join(outdir, 'library_quant'), caption=(
+        'Undiluted library concentration. qPCR: mean of in-range dilutions x fold, x standard size / library size. '
+        'Fluorometric: ng/µl x 1e6 / (660 x library size).'))
 
 
 def main():

@@ -3,6 +3,8 @@
 import os, sys, tempfile
 import numpy as np
 
+os.environ["LABSTYLE_STRICT"] = "1"   # any figure-rule violation fails the test
+
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 for p in ('skills/gel-quant/scripts', 'skills/qpcr-quant/scripts', 'skills/tapestation-qc/scripts',
           'skills/cell-count/scripts', 'skills/library-quant/scripts', 'tests'):
@@ -95,6 +97,48 @@ def test_library_quant_synthetic():
         assert abs(r['delta_cq'] - r['delta_cq_expected']) < 0.2
     l1 = [r for r in libs if r['name'] == 'L1'][0]
     assert abs(l1['qpcr_over_fluorometric'] - 1) < 0.05
+
+
+def test_countess_timecourse_config():
+    import json
+    import cell_count_timecourse
+    with tempfile.TemporaryDirectory() as td:
+        truth = synthetic_countess.write(os.path.join(td, 'raw'))
+        import glob
+        for source in glob.glob(os.path.join(td, 'raw', '*', '*.csv')):
+            with open(source) as fh:
+                content = fh.read()
+            with open(source, 'w') as fh:
+                fh.write(content.replace(':00,', ':00.1234567,', 1))
+        cfg = dict(input_globs=['raw/*'], arm_regex=r'(?P<arm>cells[A-B])',
+                   arm_labels={'cellsA': 'Arm A', 'cellsB': 'Arm B'}, channel='GFP',
+                   start_time='2026-01-01T00:00:00', title='Synthetic time course',
+                   repeat_count_ids=['1001'], outdir='results')
+        config = os.path.join(td, 'config.json')
+        with open(config, 'w') as fh:
+            json.dump(cfg, fh)
+        rows, warnings = cell_count_timecourse.run(config)
+        assert len(rows) == len(truth)
+        for row, (_, n, _, k) in zip(rows, truth):
+            assert row['objects'] == n and row['positive'] == k
+            assert abs(row['positive_pct'] - 100*k/n) < 1e-10
+            assert row['nonclumped_objects'] == n
+            assert row['ci_low'] < row['positive_pct'] < row['ci_high']
+        assert rows[1]['read_role'] == 'repeat'
+        assert abs(rows[0]['hours_post_start'] - (10 + 0.123456 / 3600)) < 1e-10
+        assert os.path.exists(os.path.join(td, 'results', 'timecourse.png'))
+        # Corrupt a second export's ID: duplicate exports must never inflate the series.
+        source = rows[1]['source_csv']
+        with open(source) as fh:
+            content = fh.read()
+        with open(source, 'w') as fh:
+            fh.write(content.replace('1001,', '1000,', 1))
+        try:
+            cell_count_timecourse.run(config, plots=False)
+        except ValueError as exc:
+            assert 'Duplicate Count ID' in str(exc)
+        else:
+            raise AssertionError('Duplicate ID was accepted')
 
 
 if __name__ == '__main__':

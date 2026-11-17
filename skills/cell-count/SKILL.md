@@ -24,6 +24,15 @@ python3 scripts/cell_count.py COUNTESS_DIR [--group-regex '(.*)_r\d+'] [--seed-c
 
 Outputs: `reads.csv`, `groups.csv`, `summary.json`, `counts.png`, `fluorescence.png`, `brightness.png`.
 
+For a reusable longitudinal plot, run `python3 scripts/cell_count_timecourse.py CONFIG.json`.
+The private JSON config supplies `input_globs` (relative to the config), `arm_regex` with a named
+`arm` group, `arm_labels`, `channel`, `start_time` (ISO timestamp), `outdir`, and optional `start_label` (default
+"transduction"), `repeat_count_ids` (strings) and `caption_notes` (experiment-specific caveats appended to
+the generated caption; the figure itself carries no caption text). Outputs include `timecourse.csv`, PNG/PDF plots and
+source hashes. Each read remains separate. All-object and non-clumped fractions are recounted
+from Cloud.json; CSV/JSON disagreements and duplicate Count IDs stop the run. Excitation changes
+are reported. Intervals cover counted-object sampling, not clumping or gate uncertainty.
+
 ## What is reported
 
 - Per read: total / live / dead per ml, counted cells, viability, live size, aggregation, and per cube:
@@ -47,6 +56,9 @@ Outputs: `reads.csv`, `groups.csv`, `summary.json`, `counts.png`, `fluorescence.
 - Check `1:1 Stain corrected` and `Pre-Dilution corrected` flags before using concentrations.
 
 ## Report
+
+Figures: drawn by the script with `_shared/labstyle.py`; any extra figure follows `_shared/FIGURES.md`.
+Captions are written to `<figure>.caption.txt`; paste them under the image, not into it.
 
 Table per group (n reads, live/ml with CV, viability, fluorescent % with CI, seeding µl) and the
 figures. Follow `../../_shared/CONVENTIONS.md`. See `references/lessons.md`.

@@ -201,36 +201,38 @@ def lane_qc(well, info, regs, region, below):
     return rec, warn
 
 
-# ------------------------------------------------------------------ figures
-def plot_traces(trace, axes, wells, labels, path):
-    import matplotlib; matplotlib.use('Agg')
-    import matplotlib.pyplot as plt
-    plt.rcParams.update({'font.size': 8, 'font.family': 'DejaVu Sans', 'axes.spines.top': False, 'axes.spines.right': False})
+# ------------------------------------------------------------------ figures (rules: _shared/FIGURES.md)
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.realpath(__file__)), '..', '..', '..', '_shared'))
+import labstyle
+
+
+def plot_traces(trace, axes, wells, labels, stem):
     n = len(wells)
-    fig, ax = plt.subplots(n, 1, figsize=(5.5, 0.9 * n + 0.6), sharex=True, dpi=200)
+    fig, ax = labstyle.figure('single', nrows=n, size=(3.5, min(0.62 * n + 0.6, 9)), sharex=True)
     ax = np.atleast_1d(ax)
     for a, w in zip(ax, wells):
         x = axes[w] if axes else np.arange(len(trace[w]))
-        a.plot(x, trace[w], color='#2a78d6', lw=0.9)
+        a.plot(x, trace[w], color=labstyle.BLUE, lw=0.8)
         if axes:
-            inner = np.isfinite(x) & (x > 35) & (x < 1300)
+            inner = np.isfinite(x) & (x > 35) & (x < 1100)
             if inner.any() and trace[w][inner].max() > 0:
                 a.set_ylim(0, trace[w][inner].max() * 1.25)   # markers can run off the top
-        a.text(0.01, 0.8, labels.get(w, w), transform=a.transAxes, fontsize=7)
-        a.set_yticks([])
+        a.set_title(labels.get(w, w), fontsize=6, pad=1)
+        a.set_yticks([]); a.spines['left'].set_visible(False)
+        if a is not ax[-1]:
+            a.tick_params(axis='x', which='both', bottom=False, labelbottom=False)
     if axes:
-        ax[-1].set_xscale('log'); ax[-1].set_xlim(20, 2000); ax[-1].set_xlabel('size (bp)')
+        ax[-1].set_xscale('log'); ax[-1].set_xlim(20, 2000)
+        ax[-1].set_xticks([25, 50, 100, 200, 500, 1000]); ax[-1].set_xticklabels([25, 50, 100, 200, 500, 1000])
+        ax[-1].set_xlabel('Size (bp)')
     else:
-        ax[-1].set_xlabel('data point (no ladder found)')
-    fig.tight_layout(h_pad=0.2)
-    fig.savefig(path, bbox_inches='tight', facecolor='white'); plt.close(fig)
+        ax[-1].set_xlabel('Data point (no ladder found)')
+    labstyle.save(fig, stem, caption='Electropherogram per lane, sized by the electronic ladder after aligning each '
+                  'lane to its lower and upper markers; y scaled per lane to the largest non-marker signal.')
 
 
-def plot_gel(trace, axes, wells, labels, groups, path):
-    """Pseudo-gel rendered from the electropherogram on a common log-bp axis, lanes labelled.
-    One intensity scale for all lanes (set by the brightest sample band), so darkness compares amounts."""
-    import matplotlib; matplotlib.use('Agg')
-    import matplotlib.pyplot as plt
+def plot_gel(trace, axes, wells, labels, groups, stem):
+    """Pseudo-gel rendered from the traces on a common log-bp axis, one intensity scale for all lanes."""
     if not axes:
         return
     grid = np.logspace(np.log10(25), np.log10(1500), 400)
@@ -242,7 +244,7 @@ def plot_gel(trace, axes, wells, labels, groups, path):
             cols[w] = np.interp(grid, x[ok], y[ok])
     inner = (grid > 35) & (grid < 1100)
     vmax = max(c[inner].max() for c in cols.values()) or 1
-    fig, ax = plt.subplots(figsize=(0.55 * len(wells) + 1.2, 4.2), dpi=200)
+    fig, ax = labstyle.figure('image', size=(min(0.32 * len(wells) + 1.0, 7.0), 3.0))
     for i, w in enumerate(wells):
         if w in cols:
             ax.imshow(np.clip(cols[w] / vmax, 0, 1)[:, None] ** 0.5, cmap='gray_r', vmin=0, vmax=1, aspect='auto',
@@ -250,18 +252,19 @@ def plot_gel(trace, axes, wells, labels, groups, path):
     ticks = [25, 50, 100, 200, 300, 500, 700, 1000, 1500]
     ax.set_xlim(-0.6, len(wells) - 0.4); ax.set_ylim(0, 1)
     ax.set_yticks([np.log10(t / 25) / np.log10(1500 / 25) for t in ticks]); ax.set_yticklabels(ticks)
-    ax.set_ylabel('bp'); ax.set_facecolor('white')
+    ax.set_ylabel('Size (bp)')
     ax.set_xticks(range(len(wells)))
-    ax.set_xticklabels([labels.get(w, w) for w in wells], rotation=60, ha='right', fontsize=6.5)
+    ax.set_xticklabels([labels.get(w, w) for w in wells], rotation=60, ha='right')
     ax.tick_params(axis='x', length=0)
-    for sp in ('top', 'right'):
-        ax.spines[sp].set_visible(False)
+    ax.spines['bottom'].set_visible(False)
     for g in groups:
         idx = [wells.index(w) for w in g['wells'] if w in wells]
         if idx:
-            ax.plot([min(idx) - 0.4, max(idx) + 0.4], [1.03, 1.03], color='#333', lw=0.8, clip_on=False, transform=ax.get_xaxis_transform())
-            ax.text(np.mean(idx), 1.05, g['label'], ha='center', va='bottom', fontsize=7, transform=ax.get_xaxis_transform())
-    fig.savefig(path, bbox_inches='tight', facecolor='white'); plt.close(fig)
+            ax.plot([min(idx) - 0.4, max(idx) + 0.4], [1.03, 1.03], color=labstyle.INK, lw=0.6, clip_on=False,
+                    transform=ax.get_xaxis_transform())
+            ax.text(np.mean(idx), 1.05, g['label'], ha='center', va='bottom', fontsize=6.5, transform=ax.get_xaxis_transform())
+    labstyle.save(fig, stem, caption='Pseudo-gel rendered from the TapeStation traces on the ladder size scale; one '
+                  'intensity scale for all lanes (set by the brightest sample band, square-root contrast).')
 
 
 # ------------------------------------------------------------------ main
@@ -309,13 +312,13 @@ def run(run_dir, sheet=None, region=(300, 600), below=200, outdir=None, plots=Tr
         labels = {w: (sh.get(w, {}).get('Sample_Name') or w) for w in trace}
         lad = [w for w in trace if is_ladder(w, peaks.get(w, {}).get('desc', ''))]
         order = lad + wells
-        plot_traces(trace, axes, wells, labels, os.path.join(outdir, 'electropherograms.png'))
+        plot_traces(trace, axes, wells, labels, os.path.join(outdir, 'electropherograms'))
         groups = []
         if sh and any('Group' in s for s in sh.values()):
             for g in dict.fromkeys(s.get('Group', '') for s in sh.values()):
                 if g:
                     groups.append(dict(label=g, wells=[w for w, s in sh.items() if s.get('Group') == g]))
-        plot_gel(trace, axes, order, {**labels, **{l: 'Ladder' for l in lad}}, groups, os.path.join(outdir, 'gel_labeled.png'))
+        plot_gel(trace, axes, order, {**labels, **{l: 'Ladder' for l in lad}}, groups, os.path.join(outdir, 'gel_labeled'))
     return out
 
 

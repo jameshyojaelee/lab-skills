@@ -47,5 +47,8 @@ libraries placed on it, amplification curves, concentrations vs fluorometric).
 
 ## Report
 
+Figures: drawn by the script with `_shared/labstyle.py`; any extra figure follows `_shared/FIGURES.md`.
+Captions are written to `<figure>.caption.txt`; paste them under the image, not into it.
+
 Table: library, size bp, nM (size-corrected), dilution agreement, fluorometric nM and ratio, warnings.
 Follow `../../_shared/CONVENTIONS.md`. TapeStation molarity and qPCR molarity are reported separately.

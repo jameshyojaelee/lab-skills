@@ -28,6 +28,12 @@ a deviations section, rationale, comparisons between protocols. Those go to the 
   `Day N (date)` headings with `TO FILL` for days not yet done.
 - Link the entry to its task or project record when the system has one.
 
+## Figures in entries
+
+Only figures made with `_shared/labstyle.py` (rules: `_shared/FIGURES.md`). Upload the PNG; put the
+generated `.caption.txt` text under the image as its caption, trimmed to what a reader needs. No methods
+paragraphs or caveats inside the image.
+
 ## Data integrity
 
 Transcribe instrument output as recorded; mark unresolved values `TO FILL`; record reagent lots when

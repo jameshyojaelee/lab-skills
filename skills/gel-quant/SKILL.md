@@ -73,7 +73,10 @@ Exclude free incoming oligos and unassigned bands from all three, and say so.
 
 ## Report
 
-- **Separate figures:** gel image with lane and band labels; efficiency bar plot; relative amounts
+Figures: drawn by the script with `_shared/labstyle.py`; any extra figure follows `_shared/FIGURES.md`.
+Captions are written to `<figure>.caption.txt`; paste them under the image, not into it.
+
+- **Separate figures** (gel image, efficiency bars, relative amounts), per `../../_shared/FIGURES.md`.
   per sample. Do not combine them, and do not use 100%-stacked plots for the main result.
 - **Every caption defines its metric** with the formula, and marks bounds (>=).
 - **A short "how quantified" block** for readers outside the analysis: band signal = area under the
