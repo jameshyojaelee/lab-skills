@@ -29,8 +29,10 @@ write it. `save()` checks the rules marked (checked) below and prints or raises 
   Liberation Sans. `save()` prints a FIGURE NOTE when it had to leave the Helvetica family; the final PDF for
   a notebook or a talk should be drawn on a machine that has Helvetica.
 - 7 pt text, 8 pt titles, 6-6.5 pt ticks; nothing under 6 pt (checked).
-- Output: vector PDF with editable text (pdf.fonttype 42) is the master; a 300-dpi PNG is written for
-  Notion and Slack previews only.
+- Output: vector PDF is the master; a 300-dpi PNG is written for Notion and Slack previews only. PDF text is
+  live-editable (pdf.fonttype 42) with Helvetica on macOS, Arial or Liberation Sans. Helvetica clones on
+  Linux are CFF fonts, which matplotlib embeds wrongly as Type 42, so `labstyle` writes Type 3 text for
+  them: same look, not live-editable.
 
 ## Colour
 - Stages and amounts: the blue family `STAGES` (dark = furthest along / most).

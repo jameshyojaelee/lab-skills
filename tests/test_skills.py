@@ -158,7 +158,11 @@ def test_default_font_is_helvetica():
         ax.plot([0, 1], [0, 1]); ax.set_xlabel('x (unit)'); ax.set_ylabel('y (unit)')
         labstyle.save(fig, os.path.join(td, 'f'))
         raw = open(os.path.join(td, 'f.pdf'), 'rb').read()
-        assert name.replace(' ', '').encode() in raw, (name, 'not embedded in the PDF')
+        if labstyle._is_cff(labstyle._font_path()):
+            assert plt.rcParams['pdf.fonttype'] == 3 and b'/Type3' in raw   # CFF is unsafe as Type 42
+        else:
+            assert plt.rcParams['pdf.fonttype'] == 42
+            assert name.replace(' ', '').encode() in raw, (name, 'not embedded in the PDF')
 
 
 if __name__ == '__main__':

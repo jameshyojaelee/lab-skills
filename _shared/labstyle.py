@@ -47,14 +47,25 @@ MIN_FONT = 6.0
 # have the same widths but different letter shapes (R, G, a, 1), so they come after the Helvetica family.
 FONT_ORDER = ['Helvetica', 'Helvetica Neue', 'Nimbus Sans', 'Nimbus Sans L', 'TeX Gyre Heros', 'TeXGyreHeros',
               'Arial', 'Liberation Sans', 'DejaVu Sans']
-HELVETICA_FAMILY = {'Helvetica', 'Helvetica Neue', 'Nimbus Sans', 'Nimbus Sans L', 'TeX Gyre Heros', 'TeXGyreHeros'}
+REAL_HELVETICA = {'Helvetica', 'Helvetica Neue'}
+HELVETICA_FAMILY = REAL_HELVETICA | {'Nimbus Sans', 'Nimbus Sans L', 'TeX Gyre Heros', 'TeXGyreHeros'}
+
+
+def _font_path():
+    from matplotlib import font_manager as fm
+    return fm.findfont(fm.FontProperties(family=['sans-serif']), fallback_to_default=True)
 
 
 def resolved_font():
     """Name of the font matplotlib will actually draw with after setup()."""
     from matplotlib import font_manager as fm
-    path = fm.findfont(fm.FontProperties(family=['sans-serif']), fallback_to_default=True)
-    return fm.FontProperties(fname=path).get_name()
+    return fm.FontProperties(fname=_font_path()).get_name()
+
+
+def _is_cff(path):
+    """OpenType with CFF outlines (header 'OTTO'). Most Helvetica clones on Linux are this kind."""
+    with open(path, 'rb') as fh:
+        return fh.read(4) == b'OTTO'
 
 
 def setup():
@@ -77,6 +88,10 @@ def setup():
         'figure.facecolor': 'white', 'savefig.facecolor': 'white',
         'pdf.fonttype': 42, 'ps.fonttype': 42, 'svg.fonttype': 'none',   # editable text in Illustrator
     })
+    # Matplotlib writes CFF fonts into a Type 42 PDF with the wrong font type (poppler: "Mismatch between
+    # font type and embedded font file"). Type 3 is valid for them but not live-editable text.
+    if _is_cff(_font_path()):
+        plt.rcParams.update({'pdf.fonttype': 3, 'ps.fonttype': 3})
 
 
 def figure(kind='single', nrows=1, ncols=None, size=None, **kw):
@@ -227,14 +242,18 @@ _NOTED = set()
 
 
 def _font_note(quiet=False):
-    """Say once per run which font was used when it is not Helvetica or a Helvetica clone.
-    A note, not a warning: it never raises, so tests pass on machines without Helvetica."""
+    """Say once per run when the figure was not drawn in real Helvetica. A note, not a warning: it never
+    raises, so tests pass on machines without Helvetica."""
     name = resolved_font()
-    if name in HELVETICA_FAMILY or name in _NOTED or quiet:
+    if name in REAL_HELVETICA or name in _NOTED or quiet:
         return
     _NOTED.add(name)
-    print(f'FIGURE NOTE no Helvetica or clone installed; drew with {name}. '
-          f'Re-run on a machine with Helvetica for the final PDF.')
+    if name in HELVETICA_FAMILY:
+        print(f'FIGURE NOTE Helvetica not installed; drew with {name}, a Helvetica clone. The PNG matches; '
+              f'PDF text is not live-editable. Re-run on a machine with Helvetica for the editable master.')
+    else:
+        print(f'FIGURE NOTE Helvetica not installed; drew with {name}, which is not a Helvetica design. '
+              f'Re-run on a machine with Helvetica.')
 
 
 def save(fig, stem, caption=None, png=True, strict=None, quiet=False):
