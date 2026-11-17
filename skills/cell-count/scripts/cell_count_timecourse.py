@@ -113,16 +113,12 @@ def plot(rows, cfg, out):
         rep = [r for r in rr if r['read_role'] == 'repeat']
         err = lambda g, f, lo, hi: [[r[f] - r[lo] for r in g], [r[hi] - r[f] for r in g]]
         ax.errorbar([days(r) for r in prim], [r['positive_pct'] for r in prim],
-                    yerr=err(prim, 'positive_pct', 'ci_low', 'ci_high'), fmt='-o', color=col, ms=4,
-                    label='All objects')
-        nc = [r for r in prim if r['nonclumped_pct'] is not None]
-        ax.errorbar([days(r) + 0.08 for r in nc], [r['nonclumped_pct'] for r in nc],
-                    yerr=err(nc, 'nonclumped_pct', 'nonclumped_ci_low', 'nonclumped_ci_high'), fmt='o',
-                    mfc='white', color=col, ms=4, label='Non-clumped')
-        if rep:
-            ax.errorbar([days(r) + 0.16 for r in rep], [r['positive_pct'] for r in rep],
-                        yerr=err(rep, 'positive_pct', 'ci_low', 'ci_high'), fmt='D', mfc='white',
-                        color=labstyle.GREY, ms=3.5, label='Repeat read')
+                    yerr=err(prim, 'positive_pct', 'ci_low', 'ci_high'), fmt='-o', color=col, ms=4)
+        for r in rep:
+            ax.errorbar([days(r)], [r['positive_pct']], yerr=err([r], 'positive_pct', 'ci_low', 'ci_high'),
+                        fmt='D', mfc='white', color=labstyle.GREY, ms=3.5)
+            ax.annotate('repeat read', (days(r), r['positive_pct']), xytext=(6, 0), textcoords='offset points',
+                        ha='left', va='center', fontsize=6, color=labstyle.MUTED)
         ax.set_title(arm)
         ax.set_ylim(0, 100)
         d = [days(r) for r in rr]
@@ -132,15 +128,10 @@ def plot(rows, cfg, out):
         if k == 0:
             ax.set_ylabel(f"{cfg['channel']}+ objects (%)")
     fig.supxlabel(f"Days after {cfg.get('start_label', 'transduction')}", fontsize=7)
-    handles = {}
-    for ax in axes:
-        for h, l in zip(*ax.get_legend_handles_labels()):
-            handles.setdefault(l, h)
-    axes[0].legend(handles.values(), handles.keys(), loc='upper left')
-    caption = (f"{cfg['channel']}-positive objects / counted objects, per Countess read; error bars are Wilson 95% "
-               "intervals on counted objects (sampling only; clumping and gate uncertainty excluded). Filled: all "
-               "objects, joined across days; open circles: non-clumped objects; open diamonds: repeat reads, not "
-               "pooled. Points offset slightly in x for visibility. " + cfg.get('caption_notes', '')).strip()
+    caption = (f"{cfg['channel']}-positive objects / counted objects, one point per Countess read, all counted "
+               "objects (clumps not separated). Error bars are Wilson 95% intervals on counted objects (sampling "
+               "only; clumping and gate uncertainty excluded). Circles are joined across days; the open diamond is a "
+               "repeat read of the same sample, not pooled. " + cfg.get('caption_notes', '')).strip()
     labstyle.save(fig, str(out / 'timecourse'), caption=caption)
 
 
