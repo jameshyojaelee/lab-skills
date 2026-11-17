@@ -141,6 +141,26 @@ def test_countess_timecourse_config():
             raise AssertionError('Duplicate ID was accepted')
 
 
+def test_default_font_is_helvetica():
+    import matplotlib.pyplot as plt
+    sys.path.insert(0, os.path.join(ROOT, '_shared'))
+    import labstyle
+    labstyle.setup()
+    order = plt.rcParams['font.sans-serif']
+    assert order[0] == 'Helvetica'
+    # Arial and Liberation Sans must come after every Helvetica-family name.
+    last_helv = max(i for i, n in enumerate(order) if n in labstyle.HELVETICA_FAMILY)
+    assert last_helv < order.index('Arial') < order.index('Liberation Sans')
+    # The PDF must embed the font that was resolved (editable text, Type 42).
+    name = labstyle.resolved_font()
+    with tempfile.TemporaryDirectory() as td:
+        fig, ax = labstyle.figure('single')
+        ax.plot([0, 1], [0, 1]); ax.set_xlabel('x (unit)'); ax.set_ylabel('y (unit)')
+        labstyle.save(fig, os.path.join(td, 'f'))
+        raw = open(os.path.join(td, 'f.pdf'), 'rb').read()
+        assert name.replace(' ', '').encode() in raw, (name, 'not embedded in the PDF')
+
+
 if __name__ == '__main__':
     for name, fn in list(globals().items()):
         if name.startswith('test_'):

@@ -24,8 +24,11 @@ write it. `save()` checks the rules marked (checked) below and prints or raises 
 ## Size and type (from the lab publication theme)
 - Sizes (inches): single panel 3.5 x 2.6; two or three panels in a row 7.0 x 2.4-2.6; 2 x 2 7.0 x 4.8;
   max 7.2 x 9 (checked).
-- Arial / Helvetica (Liberation Sans as fallback), 7 pt text, 8 pt titles, 6-6.5 pt ticks; nothing under
-  6 pt (checked).
+- Helvetica is the default font. Do not set another family in a script. When real Helvetica is not
+  installed, `labstyle` falls back to a Helvetica clone (Nimbus Sans, TeX Gyre Heros), then Arial, then
+  Liberation Sans. `save()` prints a FIGURE NOTE when it had to leave the Helvetica family; the final PDF for
+  a notebook or a talk should be drawn on a machine that has Helvetica.
+- 7 pt text, 8 pt titles, 6-6.5 pt ticks; nothing under 6 pt (checked).
 - Output: vector PDF with editable text (pdf.fonttype 42) is the master; a 300-dpi PNG is written for
   Notion and Slack previews only.
 

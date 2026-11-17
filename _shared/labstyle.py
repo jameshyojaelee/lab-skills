@@ -41,11 +41,26 @@ SIZES = {
 MAX_W, MAX_H = 7.2, 9.0
 MIN_FONT = 6.0
 
+# ---------------------------------------------------------------- font
+# Default is Helvetica. The clones that follow are drawn from the same design (Nimbus Sans, TeX Gyre Heros)
+# and are used when real Helvetica is not installed (Linux, cloud containers). Arial and Liberation Sans
+# have the same widths but different letter shapes (R, G, a, 1), so they come after the Helvetica family.
+FONT_ORDER = ['Helvetica', 'Helvetica Neue', 'Nimbus Sans', 'Nimbus Sans L', 'TeX Gyre Heros', 'TeXGyreHeros',
+              'Arial', 'Liberation Sans', 'DejaVu Sans']
+HELVETICA_FAMILY = {'Helvetica', 'Helvetica Neue', 'Nimbus Sans', 'Nimbus Sans L', 'TeX Gyre Heros', 'TeXGyreHeros'}
+
+
+def resolved_font():
+    """Name of the font matplotlib will actually draw with after setup()."""
+    from matplotlib import font_manager as fm
+    path = fm.findfont(fm.FontProperties(family=['sans-serif']), fallback_to_default=True)
+    return fm.FontProperties(fname=path).get_name()
+
 
 def setup():
     plt.rcParams.update({
         'font.family': 'sans-serif',
-        'font.sans-serif': ['Arial', 'Helvetica', 'Liberation Sans', 'DejaVu Sans'],
+        'font.sans-serif': FONT_ORDER,
         'font.size': 7, 'axes.titlesize': 8, 'axes.labelsize': 7,
         'xtick.labelsize': 6.5, 'ytick.labelsize': 6.5, 'legend.fontsize': 6.5,
         'axes.titleweight': 'normal', 'axes.titlelocation': 'left',
@@ -208,9 +223,24 @@ def check(fig):
     return sorted(set(issues))
 
 
+_NOTED = set()
+
+
+def _font_note(quiet=False):
+    """Say once per run which font was used when it is not Helvetica or a Helvetica clone.
+    A note, not a warning: it never raises, so tests pass on machines without Helvetica."""
+    name = resolved_font()
+    if name in HELVETICA_FAMILY or name in _NOTED or quiet:
+        return
+    _NOTED.add(name)
+    print(f'FIGURE NOTE no Helvetica or clone installed; drew with {name}. '
+          f'Re-run on a machine with Helvetica for the final PDF.')
+
+
 def save(fig, stem, caption=None, png=True, strict=None, quiet=False):
     """Write <stem>.pdf (+ .png, + .caption.txt) after checking the figure against FIGURES.md."""
     strict = strict if strict is not None else os.environ.get('LABSTYLE_STRICT') == '1'
+    _font_note(quiet)
     issues = check(fig)
     if issues:
         msg = f'{os.path.basename(stem)}: ' + '; '.join(issues)
