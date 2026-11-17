@@ -5,8 +5,8 @@ description: Create or update an electronic lab notebook entry (Notion database,
 
 # Lab notebook entries
 
-The destination (database, people, icons, section names) comes from the private config named in
-`$LAB_SKILLS_CONFIG` (see `config/README.md`). If it is unset, ask where the entry goes.
+The destination (database, people, icons, section names) comes from the private config
+(`$LAB_SKILLS_CONFIG`, else `~/.config/lab-skills/config.yaml`; see `config/README.md`). If neither exists, ask where the entry goes.
 
 ## Scope: bare minimum
 

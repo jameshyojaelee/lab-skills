@@ -1,4 +1,4 @@
-# Example private config. Copy outside the repo, fill in, and point LAB_SKILLS_CONFIG at it.
+# Example private config. Keep the real one outside the repo (see config/README.md).
 projects:
   myproject:
     notebook:

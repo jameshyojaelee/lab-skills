@@ -1,0 +1,18 @@
+# library-quant config template. Size bp = average library size from TapeStation/Bioanalyzer.
+export_dir: .   # folder with the CFX CSV export
+outdir: out
+standards:
+  size_bp: 452
+  levels:
+    - {pM: 20,     wells: [A12]}
+    - {pM: 2,      wells: [B12]}
+    - {pM: 0.2,    wells: [C12]}
+    - {pM: 0.02,   wells: [D12]}
+    - {pM: 0.002,  wells: [E12]}
+    - {pM: 0.0002, wells: [F12]}
+ntc: [G12]
+libraries:
+  - {name: L1, size_bp: 400, fluorometric_ng_ul: 2.64,
+     dilutions: [{fold: 10000, wells: [A1, B1, C1]}, {fold: 100000, wells: [D1, E1, F1]}]}
+  - {name: L2, size_bp: 450, dilutions: [{fold: 10000, wells: [A2, B2, C2]}, {fold: 100000, wells: [D2, E2, F2]}]}
+  - {name: L3, size_bp: 380, dilutions: [{fold: 10000, wells: [A3, B3, C3]}, {fold: 100000, wells: [D3, E3, F3]}]}

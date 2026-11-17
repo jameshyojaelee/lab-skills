@@ -5,10 +5,10 @@ import numpy as np
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 for p in ('skills/gel-quant/scripts', 'skills/qpcr-quant/scripts', 'skills/tapestation-qc/scripts',
-          'skills/cell-count/scripts', 'tests'):
+          'skills/cell-count/scripts', 'skills/library-quant/scripts', 'tests'):
     sys.path.insert(0, os.path.join(ROOT, p))
-import gel_quant, qpcr_quant, tapestation_qc, cell_count
-import synthetic_gel, synthetic_qpcr, synthetic_tapestation, synthetic_countess
+import gel_quant, qpcr_quant, tapestation_qc, cell_count, library_quant
+import synthetic_gel, synthetic_qpcr, synthetic_tapestation, synthetic_countess, synthetic_cfx
 
 
 def test_gel_synthetic():
@@ -80,6 +80,21 @@ def test_countess_synthetic():
     g = {x['group']: x for x in groups}
     assert g['cellsA']['n_reads'] == 2 and abs(g['cellsA']['cube1_pooled_pct'] - 100 * 230 / 780) < 1e-6
     assert abs(g['cellsB']['ul_for_seed'] - 2e5 / (400 * 2500) * 1000) < 1e-6
+
+
+def test_library_quant_synthetic():
+    cfg = os.path.join(ROOT, 'skills', 'library-quant', 'examples', 'synthetic', 'config.yaml')
+    with tempfile.TemporaryDirectory() as td:
+        truth = synthetic_cfx.write(os.path.join(td, 'export'))
+        fit, libs, warn = library_quant.run(cfg, export_dir=os.path.join(td, 'export'), outdir=td)
+        assert os.path.exists(os.path.join(td, 'library_quant.png'))
+    assert abs(fit['slope'] - synthetic_cfx.SLOPE) < 0.01 and fit['r2'] > 0.999
+    for r in libs:
+        nM, bp = truth[r['name']]
+        assert abs(r['nM_size_corrected'] / nM - 1) < 0.05, (r['name'], r['nM_size_corrected'], nM)
+        assert abs(r['delta_cq'] - r['delta_cq_expected']) < 0.2
+    l1 = [r for r in libs if r['name'] == 'L1'][0]
+    assert abs(l1['qpcr_over_fluorometric'] - 1) < 0.05
 
 
 if __name__ == '__main__':

@@ -5,7 +5,8 @@ description: Draft and, after approval, post a short team chat update (Slack) fr
 
 # Chat update from a notebook entry
 
-Channels and member IDs come from the private config in `$LAB_SKILLS_CONFIG`. If a topic has no
+Channels and member IDs come from the private config (`$LAB_SKILLS_CONFIG`, else
+`~/.config/lab-skills/config.yaml`). If a topic has no
 channel there, ask which channel to use.
 
 ## Rules

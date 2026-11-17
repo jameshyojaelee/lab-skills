@@ -5,6 +5,7 @@ This repo holds analysis skills. For a matching task, read the skill's `SKILL.md
 - Gel images, band intensity, ligation efficiency, % full length -> `skills/gel-quant/SKILL.md`
 - qPCR, standard curve, copies per well or per bead -> `skills/qpcr-quant/SKILL.md`
 - TapeStation, library QC, fragment size -> `skills/tapestation-qc/SKILL.md`
+- Library quantification by qPCR (KAPA) -> `skills/library-quant/SKILL.md`
 - Countess cell counts, viability, fluorescent fraction, seeding -> `skills/cell-count/SKILL.md`
 - Lab notebook entries -> `skills/lab-notebook-entry/SKILL.md`
 - Team chat updates -> `skills/slack-update/SKILL.md`
@@ -20,4 +21,4 @@ Rules:
   present and missing, mark bounds from clipping, label claims verified / inferred / estimate.
 - Plain language, no em dashes.
 - Keep this repo generic: no project names, sample names, people, database or channel IDs. Those go in
-  the private config named by `$LAB_SKILLS_CONFIG` (see `config/README.md`). Examples use synthetic data.
+  the private config (`$LAB_SKILLS_CONFIG`, else `~/.config/lab-skills/config.yaml`; see `config/README.md`). Examples use synthetic data.

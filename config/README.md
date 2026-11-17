@@ -1,10 +1,11 @@
 # Private configuration
 
 Skills that file results somewhere (notebook databases, chat channels, storage paths) read their
-destination from a private YAML outside this repo. Point to it with an environment variable:
+destination from a private YAML outside this repo. Agents look for it in this order:
 
-    export LAB_SKILLS_CONFIG=~/path/to/private/lab-skills-config.yaml
+1. the path in `$LAB_SKILLS_CONFIG`
+2. `~/.config/lab-skills/config.yaml` (a file or a symlink to wherever you keep it)
 
 Keep that file out of git (or in a separate private repo). Shape: see `example.yaml`.
-Agents: read the file named in `$LAB_SKILLS_CONFIG`; if it is unset, ask the user for the destination.
+Agents: read the first of these that exists; if neither does, ask the user for the destination.
 Never copy values from it into this repo.

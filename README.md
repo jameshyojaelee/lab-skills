@@ -10,6 +10,7 @@ work for Claude Code, Codex, Gemini and people.
 | [`gel-quant`](skills/gel-quant/SKILL.md) | Gel band quantification: band areas, step and overall ligation efficiency, relative amounts, pmol from standards, clipping bounds |
 | [`qpcr-quant`](skills/qpcr-quant/SKILL.md) | Absolute qPCR: standard curve, Ct to copies, melt QC, single-bead wells with Poisson check, bulk copies per bead |
 | [`tapestation-qc`](skills/tapestation-qc/SKILL.md) | Agilent TapeStation: peak and region size, molarity, dimer fraction, warnings, ladder-sized traces, labelled gel |
+| [`library-quant`](skills/library-quant/SKILL.md) | qPCR library quant (KAPA-style): standard curve, size correction, dilution agreement, fluorometric comparison |
 | [`cell-count`](skills/cell-count/SKILL.md) | Countess 3 / 3 FL: concentration, viability, fluorescent % with CIs, replicate summary, seeding volumes |
 | [`lab-notebook-entry`](skills/lab-notebook-entry/SKILL.md) | Bare-minimum electronic notebook entries (destination from private config) |
 | [`slack-update`](skills/slack-update/SKILL.md) | Short team updates from notebook entries, posted only after approval |
@@ -26,6 +27,7 @@ skills/<name>/
   configs/template.yaml start here for a new experiment
   examples/<expt>/      real config + data + expected output
   references/           method.md (why), lessons.md (pitfalls from past runs)
+scripts/link_skills.sh  symlink skills into agent skill folders
 tests/                  tests on synthetic data with known answers
 _shared/CONVENTIONS.md  reporting rules all skills follow
 config/                 how private destinations are configured (example only)
@@ -40,13 +42,10 @@ python3 tests/test_skills.py        # or: python3 -m pytest -q tests
 
 ## Use from agents
 
-Link each skill into the tool's skill folder so every tool reads this one copy:
+Link each skill into the tools' skill folders so every tool reads this one copy:
 
 ```
-for d in ~/.claude/skills ~/.codex/skills ~/.agents/skills; do
-  mkdir -p "$d"
-  for s in "$PWD"/skills/*; do ln -sfn "$s" "$d/$(basename "$s")"; done
-done
+scripts/link_skills.sh            # ~/.claude/skills, ~/.codex/skills, ~/.agents/skills
 ```
 
 Agents without skill support: point them at `AGENTS.md`.
